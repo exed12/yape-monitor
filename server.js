@@ -1,56 +1,81 @@
-# Monitor Yape 🟣
+const express = require('express');
+const app = express();
 
-Dashboard en tiempo real para notificaciones de pagos Yape.
-Funciona 24/7 en la nube — sin necesidad de PC encendida.
+app.use(express.json());
+app.use(express.static('public'));
 
-## Archivos
+let pagos = [];
 
-```
-yape-monitor/
-├── server.js          ← Servidor Node.js
-├── package.json       ← Dependencias
-├── README.md          ← Este archivo
-└── public/
-    └── index.html     ← Dashboard web
-```
+function fechaHoyPeru() {
+  return new Date().toLocaleDateString('es-PE', { timeZone: 'America/Lima' });
+}
 
-## Despliegue en Railway (gratis)
+function horaAhoraPeru() {
+  return new Date().toLocaleTimeString('es-PE', { timeZone: 'America/Lima', hour: '2-digit', minute: '2-digit' });
+}
 
-1. Ve a https://railway.app y crea una cuenta (con Google o GitHub)
-2. Clic en "New Project" → "Deploy from GitHub repo"
-3. Sube esta carpeta a un repositorio de GitHub
-4. Railway detecta Node.js automáticamente y despliega
-5. En "Settings" → "Domains" → genera tu URL pública
-   Ejemplo: https://yape-monitor-production.up.railway.app
+function extraerDatos(body) {
+  const textoCompleto = body.texto || body.monto || body.nombre || '';
+  const titulo = body.nombre || '';
 
-## Configurar Macrodroid en el celular
+  let nombre = null;
+  let monto = null;
+  let codigo = null;
 
-1. Instala Macrodroid desde Play Store (gratis)
-2. Crea una nueva macro:
-   - TRIGGER: "Notificación recibida" → selecciona app "Yape"
-   - ACCIÓN: "HTTP Request"
-     - Método: POST
-     - URL: https://TU-URL.railway.app/yape
-     - Cabecera: Content-Type: application/json
-     - Cuerpo (JSON):
-       {
-         "nombre": "[NOTIFICATION_TITLE]",
-         "monto": "[NOTIFICATION_TEXT]",
-         "hora": "[TIME]"
-       }
-3. Guarda y activa la macro
+  // "Yostin Ros* te envió un pago por S/ 1. El cód. de seguridad es: 671"
+  const p1 = /^(.+?)\s+te\s+envi[oó]\s+un\s+pago\s+por\s+S\/\s*([\d,.]+)/i;
+  const p2 = /Yape!\s+(.+?)\s+te\s+envi[oó]\s+un\s+pago\s+por\s+S\/\s*([\d,.]+)/i;
+  const p3 = /S\/\s*([\d,.]+)/i;
+  const p4 = /^(.+?)\s+te\s+envi/i;
+  // Código de seguridad
+  const pCod = /c[oó]d(?:\.|igo)?\s+de\s+seguridad\s+es:\s*(\d+)/i;
 
-## Ver el dashboard
+  for (const texto of [textoCompleto, titulo]) {
+    if (!texto || texto.includes('[')) continue;
 
-Abre desde cualquier celular o PC:
-https://TU-URL.railway.app
+    const mc = texto.match(pCod);
+    if (mc && !codigo) codigo = mc[1];
 
-Se actualiza automáticamente cada 5 segundos.
+    const m2 = texto.match(p2);
+    if (m2) { nombre = nombre || m2[1].trim(); monto = monto || parseFloat(m2[2].replace(',','.')); continue; }
 
-## Endpoint
+    const m1 = texto.match(p1);
+    if (m1) { nombre = nombre || m1[1].trim(); monto = monto || parseFloat(m1[2].replace(',','.')); continue; }
 
-POST https://TU-URL.railway.app/yape
-Body JSON: { "nombre": "...", "monto": "...", "hora": "..." }
+    const m3 = texto.match(p3);
+    if (m3 && !monto) monto = parseFloat(m3[1].replace(',','.'));
 
-GET https://TU-URL.railway.app/pagos
-Devuelve lista de últimos 200 pagos en JSON
+    const m4 = texto.match(p4);
+    if (m4 && !nombre) nombre = m4[1].trim();
+  }
+
+  return {
+    nombre: nombre || 'Pago recibido',
+    monto: monto || 0,
+    codigo: codigo || null,
+    textoOriginal: textoCompleto
+  };
+}
+
+app.post('/yape', (req, res) => {
+  console.log('[YAPE] Body recibido:', JSON.stringify(req.body));
+  const { nombre, monto, codigo, textoOriginal } = extraerDatos(req.body);
+  const hora = horaAhoraPeru();
+  const fecha = fechaHoyPeru();
+  const pago = { id: Date.now(), nombre, monto, codigo, textoOriginal, hora, fecha };
+  pagos.unshift(pago);
+  if (pagos.length > 500) pagos.pop();
+  console.log('[YAPE] Pago procesado:', pago);
+  res.json({ ok: true, pago });
+});
+
+app.get('/pagos', (req, res) => {
+  const hoy = fechaHoyPeru();
+  res.json(pagos.filter(p => p.fecha === hoy));
+});
+
+app.get('/pagos/todos', (req, res) => res.json(pagos));
+app.get('/ping', (req, res) => res.send('ok'));
+
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => console.log(`Servidor Yape activo en puerto ${PORT}`));
