@@ -1,0 +1,493 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Monitor Yape</title>
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --yape: #6C2FAD;
+    --yape-light: #8B3FD9;
+    --yape-dim: #3D1A63;
+    --yape-glow: rgba(108,47,173,0.25);
+    --bg: #0D0B12;
+    --surface: #14111E;
+    --surface2: #1C1828;
+    --border: rgba(108,47,173,0.2);
+    --border2: rgba(255,255,255,0.06);
+    --text: #F0EBF8;
+    --muted: #8B7FA8;
+    --green: #22D98F;
+    --green-dim: rgba(34,217,143,0.12);
+    --font: 'Sora', sans-serif;
+    --mono: 'JetBrains Mono', monospace;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: var(--font);
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* Fondo con efecto grid sutil */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(108,47,173,0.04) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(108,47,173,0.04) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  /* Orbe de fondo */
+  body::after {
+    content: '';
+    position: fixed;
+    top: -200px;
+    right: -200px;
+    width: 600px;
+    height: 600px;
+    background: radial-gradient(circle, rgba(108,47,173,0.12) 0%, transparent 70%);
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .wrap {
+    position: relative;
+    z-index: 1;
+    max-width: 700px;
+    margin: 0 auto;
+    padding: 24px 16px 60px;
+  }
+
+  /* HEADER */
+  header {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    margin-bottom: 28px;
+  }
+
+  .logo {
+    width: 48px;
+    height: 48px;
+    background: var(--yape);
+    border-radius: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    box-shadow: 0 0 24px var(--yape-glow);
+  }
+
+  .logo svg { width: 26px; height: 26px; fill: white; }
+
+  .header-text h1 {
+    font-size: 20px;
+    font-weight: 600;
+    color: var(--text);
+    letter-spacing: -0.3px;
+  }
+
+  .header-text p {
+    font-size: 12px;
+    color: var(--muted);
+    font-family: var(--mono);
+    margin-top: 2px;
+  }
+
+  .status-pill {
+    margin-left: auto;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 11px;
+    font-family: var(--mono);
+    color: var(--green);
+    background: var(--green-dim);
+    border: 1px solid rgba(34,217,143,0.2);
+    padding: 5px 10px;
+    border-radius: 20px;
+  }
+
+  .pulse {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--green);
+    animation: pulse 2s infinite;
+  }
+
+  @keyframes pulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:0.5;transform:scale(0.8)} }
+
+  /* MÉTRICAS */
+  .metrics {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+    margin-bottom: 20px;
+  }
+
+  .metric {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 16px 14px;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .metric::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+    background: linear-gradient(90deg, var(--yape), var(--yape-light));
+    opacity: 0.6;
+  }
+
+  .metric-label {
+    font-size: 10px;
+    font-family: var(--mono);
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    margin-bottom: 8px;
+  }
+
+  .metric-value {
+    font-size: 22px;
+    font-weight: 700;
+    color: var(--green);
+    letter-spacing: -0.5px;
+    line-height: 1;
+  }
+
+  .metric-value.white { color: var(--text); }
+
+  /* LISTA DE PAGOS */
+  .section-label {
+    font-size: 10px;
+    font-family: var(--mono);
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-bottom: 10px;
+    padding-left: 2px;
+  }
+
+  .pagos-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .pago-card {
+    background: var(--surface);
+    border: 1px solid var(--border2);
+    border-radius: 14px;
+    padding: 14px 16px;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    transition: border-color 0.3s, background 0.3s;
+    animation: slideDown 0.35s cubic-bezier(0.34,1.56,0.64,1);
+  }
+
+  .pago-card.nuevo {
+    border-color: var(--yape);
+    background: rgba(108,47,173,0.08);
+    box-shadow: 0 0 20px var(--yape-glow);
+  }
+
+  @keyframes slideDown {
+    from { opacity: 0; transform: translateY(-12px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  .avatar {
+    width: 42px;
+    height: 42px;
+    border-radius: 50%;
+    background: var(--yape-dim);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    font-weight: 600;
+    color: #C89EF5;
+    flex-shrink: 0;
+    border: 1px solid var(--border);
+  }
+
+  .pago-info { flex: 1; min-width: 0; }
+
+  .pago-nombre {
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--text);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .pago-hora {
+    font-size: 11px;
+    font-family: var(--mono);
+    color: var(--muted);
+    margin-top: 3px;
+  }
+
+  .badge-nuevo {
+    font-size: 9px;
+    font-family: var(--mono);
+    background: var(--yape);
+    color: white;
+    padding: 2px 6px;
+    border-radius: 4px;
+    margin-left: 6px;
+    vertical-align: middle;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  .pago-monto {
+    font-size: 17px;
+    font-weight: 700;
+    color: var(--green);
+    font-family: var(--mono);
+    white-space: nowrap;
+  }
+
+  /* EMPTY */
+  .empty {
+    text-align: center;
+    padding: 48px 0;
+  }
+
+  .empty-icon {
+    width: 56px;
+    height: 56px;
+    border: 2px dashed var(--border);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto 16px;
+  }
+
+  .empty p {
+    color: var(--muted);
+    font-size: 14px;
+  }
+
+  .empty small {
+    display: block;
+    color: var(--muted);
+    font-size: 11px;
+    font-family: var(--mono);
+    margin-top: 6px;
+    opacity: 0.6;
+  }
+
+  /* FOOTER INFO */
+  .url-box {
+    margin-top: 28px;
+    background: var(--surface2);
+    border: 1px solid var(--border2);
+    border-radius: 12px;
+    padding: 14px 16px;
+  }
+
+  .url-box p {
+    font-size: 10px;
+    font-family: var(--mono);
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    margin-bottom: 6px;
+  }
+
+  .url-box code {
+    font-size: 12px;
+    font-family: var(--mono);
+    color: #C89EF5;
+    word-break: break-all;
+  }
+
+  /* LOADER */
+  .loader {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+    padding: 32px;
+  }
+
+  .loader span {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--yape);
+    animation: bounce 1.2s infinite ease-in-out;
+  }
+
+  .loader span:nth-child(2) { animation-delay: 0.15s; }
+  .loader span:nth-child(3) { animation-delay: 0.3s; }
+
+  @keyframes bounce { 0%,80%,100%{transform:scale(0.6);opacity:0.4} 40%{transform:scale(1);opacity:1} }
+
+  /* RESPONSIVE */
+  @media (max-width: 400px) {
+    .metrics { grid-template-columns: repeat(3, 1fr); }
+    .metric-value { font-size: 18px; }
+    .metric { padding: 12px 10px; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <div class="logo">
+      <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 14.5v-4h3l-5-7v4H8l5 7z"/></svg>
+    </div>
+    <div class="header-text">
+      <h1>Monitor Yape</h1>
+      <p id="ultima-actualizacion">Conectando...</p>
+    </div>
+    <div class="status-pill" id="status-pill">
+      <div class="pulse"></div>
+      <span>EN VIVO</span>
+    </div>
+  </header>
+
+  <!-- Métricas -->
+  <div class="metrics">
+    <div class="metric">
+      <div class="metric-label">Total hoy</div>
+      <div class="metric-value" id="total-dia">S/ 0</div>
+    </div>
+    <div class="metric">
+      <div class="metric-label">Pagos</div>
+      <div class="metric-value white" id="total-pagos">0</div>
+    </div>
+    <div class="metric">
+      <div class="metric-label">Último</div>
+      <div class="metric-value" id="ultimo-monto">—</div>
+    </div>
+  </div>
+
+  <!-- Lista -->
+  <div class="section-label">Pagos recibidos</div>
+  <div class="pagos-list" id="pagos-list">
+    <div class="loader"><span></span><span></span><span></span></div>
+  </div>
+
+  <!-- Info endpoint -->
+  <div class="url-box">
+    <p>Endpoint para Macrodroid (POST)</p>
+    <code id="endpoint-url">https://tu-app.railway.app/yape</code>
+  </div>
+
+</div>
+
+<script>
+  const HOST = window.location.origin;
+  document.getElementById('endpoint-url').textContent = HOST + '/yape';
+
+  let ultimoId = null;
+  let totalDia = 0;
+
+  function initials(name) {
+    return (name || 'XX').split(' ').slice(0, 2).map(w => w[0]).join('').toUpperCase();
+  }
+
+  function formatMonto(m) {
+    if (!m && m !== 0) return '—';
+    return 'S/ ' + parseFloat(m).toFixed(2);
+  }
+
+  function renderPagos(pagos) {
+    const list = document.getElementById('pagos-list');
+
+    if (!pagos || pagos.length === 0) {
+      list.innerHTML = `
+        <div class="empty">
+          <div class="empty-icon">
+            <svg width="24" height="24" fill="none" stroke="#3D1A63" stroke-width="2" viewBox="0 0 24 24">
+              <path d="M12 22C6.477 22 2 17.523 2 12S6.477 2 12 2s10 4.477 10 10-4.477 10-10 10zM12 8v4m0 4h.01"/>
+            </svg>
+          </div>
+          <p>Esperando pagos...</p>
+          <small>Los pagos aparecerán aquí al instante</small>
+        </div>`;
+      return;
+    }
+
+    // Calcula total del día
+    totalDia = pagos.reduce((sum, p) => sum + (parseFloat(p.monto) || 0), 0);
+    document.getElementById('total-dia').textContent = 'S/ ' + totalDia.toFixed(2);
+    document.getElementById('total-pagos').textContent = pagos.length;
+    document.getElementById('ultimo-monto').textContent = formatMonto(pagos[0].monto);
+
+    // Detecta si hay nuevo pago
+    const nuevoId = pagos[0]?.id;
+    const hayNuevo = ultimoId !== null && nuevoId !== ultimoId;
+    ultimoId = nuevoId;
+
+    // Renderiza tarjetas
+    list.innerHTML = pagos.slice(0, 30).map((p, i) => {
+      const esNuevo = i === 0 && hayNuevo;
+      return `
+        <div class="pago-card ${esNuevo ? 'nuevo' : ''}">
+          <div class="avatar">${initials(p.nombre)}</div>
+          <div class="pago-info">
+            <div class="pago-nombre">
+              ${p.nombre || 'Desconocido'}
+              ${esNuevo ? '<span class="badge-nuevo">nuevo</span>' : ''}
+            </div>
+            <div class="pago-hora">${p.fecha || ''} ${p.hora || ''} — Pago recibido</div>
+          </div>
+          <div class="pago-monto">+${formatMonto(p.monto)}</div>
+        </div>`;
+    }).join('');
+
+    // Quita clase 'nuevo' después de 4 segundos
+    if (hayNuevo) {
+      setTimeout(() => {
+        const primera = list.querySelector('.pago-card.nuevo');
+        if (primera) primera.classList.remove('nuevo');
+      }, 4000);
+    }
+  }
+
+  async function fetchPagos() {
+    try {
+      const res = await fetch('/pagos');
+      const data = await res.json();
+      renderPagos(data);
+
+      const ahora = new Date().toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+      document.getElementById('ultima-actualizacion').textContent = 'actualizado ' + ahora;
+    } catch (e) {
+      document.getElementById('ultima-actualizacion').textContent = 'error de conexión';
+      document.getElementById('status-pill').style.opacity = '0.4';
+    }
+  }
+
+  // Primera carga
+  fetchPagos();
+  // Actualiza cada 5 segundos
+  setInterval(fetchPagos, 5000);
+</script>
+</body>
+</html>
