@@ -1,3 +1,4 @@
+// v5 - monitor yape con codigo de seguridad
 const express = require('express');
 const app = express();
 
@@ -20,18 +21,19 @@ function extraerDatos(body) {
 
   let nombre = null;
   let monto = null;
+  let codigo = null;
 
-  // "Yostin Ros* te envió un pago por S/ 1"
   const p1 = /^(.+?)\s+te\s+envi[oó]\s+un\s+pago\s+por\s+S\/\s*([\d,.]+)/i;
-  // "Yape! NOMBRE te envió un pago por S/ 1"
   const p2 = /Yape!\s+(.+?)\s+te\s+envi[oó]\s+un\s+pago\s+por\s+S\/\s*([\d,.]+)/i;
-  // Solo monto
   const p3 = /S\/\s*([\d,.]+)/i;
-  // Solo nombre (antes de "te envió")
   const p4 = /^(.+?)\s+te\s+envi/i;
+  const pCod = /c[oó]d(?:\.|igo)?\s+de\s+seguridad\s+es:\s*(\d+)/i;
 
   for (const texto of [textoCompleto, titulo]) {
     if (!texto || texto.includes('[')) continue;
+
+    const mc = texto.match(pCod);
+    if (mc && !codigo) codigo = mc[1];
 
     const m2 = texto.match(p2);
     if (m2) { nombre = nombre || m2[1].trim(); monto = monto || parseFloat(m2[2].replace(',','.')); continue; }
@@ -49,16 +51,17 @@ function extraerDatos(body) {
   return {
     nombre: nombre || 'Pago recibido',
     monto: monto || 0,
+    codigo: codigo || null,
     textoOriginal: textoCompleto
   };
 }
 
 app.post('/yape', (req, res) => {
   console.log('[YAPE] Body recibido:', JSON.stringify(req.body));
-  const { nombre, monto, textoOriginal } = extraerDatos(req.body);
+  const { nombre, monto, codigo, textoOriginal } = extraerDatos(req.body);
   const hora = horaAhoraPeru();
   const fecha = fechaHoyPeru();
-  const pago = { id: Date.now(), nombre, monto, textoOriginal, hora, fecha };
+  const pago = { id: Date.now(), nombre, monto, codigo, textoOriginal, hora, fecha };
   pagos.unshift(pago);
   if (pagos.length > 500) pagos.pop();
   console.log('[YAPE] Pago procesado:', pago);
